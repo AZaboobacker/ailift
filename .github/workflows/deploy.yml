@@ -27,8 +27,26 @@ jobs:
     - name: Install dependencies
       run: |
         cd ${{ env.NEW_FOLDER }}
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        if [ -f requirements.txt ]; then
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        else
+          echo "No requirements.txt found in the new folder."
+          exit 1
+        fi
+
+    - name: Run setup script
+      run: |
+        cd ${{ env.NEW_FOLDER }}
+        if [ -f setup.py ]; then
+          python setup.py install
+        else
+          echo "No setup.py found in the new folder."
+        fi
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
 
     - name: Deploy to AWS Elastic Beanstalk
       run: |
@@ -48,4 +66,4 @@ jobs:
         echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
 
     - name: Print URL
-      run: echo "The Streamlit app is deployed at:${{ env.ENV_URL }}"
+      run: echo "The Streamlit app is deployed at: ${{ env.ENV_URL }}"
