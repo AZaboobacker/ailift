@@ -24,7 +24,7 @@ jobs:
       shell: bash
 
     - name: Debug new folder
-      run: echo "New folder is:${{ env.NEW_FOLDER }}"
+      run: echo "New folder is: ${{ env.NEW_FOLDER }}"
       shell: bash
 
     - name: Set up Python
@@ -54,6 +54,18 @@ jobs:
         echo "SUBNET2: ${{ secrets.SUBNET2 }}"
       shell: bash
 
+    - name: Format Subnets
+      id: format_subnets
+      run: |
+        SUBNETS_STRING="${{ secrets.SUBNET1 }},${{ secrets.SUBNET2 }}"
+        echo "SUBNETS_STRING=$SUBNETS_STRING" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Debug Formatted Subnets
+      run: |
+        echo "Formatted SUBNETS:${{ env.SUBNETS_STRING }}"
+      shell: bash
+
     - name: Deploy to AWS Elastic Beanstalk
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -61,8 +73,7 @@ jobs:
         AWS_REGION: ${{ secrets.AWS_REGION }}
         S3_BUCKET: ${{ secrets.S3_BUCKET }}
         VPC_ID: ${{ secrets.VPC_ID }}
-        SUBNET1: ${{ secrets.SUBNET1 }}
-        SUBNET2: ${{ secrets.SUBNET2 }}
+        SUBNETS: ${{ env.SUBNETS_STRING }}
       run: |
         UNIQUE_ID=$(uuidgen)
         DIRECTORY="${UNIQUE_ID}-app"
@@ -97,8 +108,8 @@ jobs:
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
           --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
           --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=${{ secrets.VPC_ID }} \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ secrets.SUBNET1 }},${{ secrets.SUBNET2 }}" \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ secrets.SUBNET1 }},${{ secrets.SUBNET2 }}"
+          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ env.SUBNETS_STRING }}" \
+          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ env.SUBNETS_STRING }}"
 
         # Wait for the environment to be ready
         MAX_ATTEMPTS=30
@@ -119,7 +130,7 @@ jobs:
           sleep $SLEEP_INTERVAL
         done
 
-        if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+        if [ $ATTEMPT -eq $MAX_ATTEMPTS]; then
           echo "Max attempts reached. Environment did not become ready in time."
           exit 1
         fi
