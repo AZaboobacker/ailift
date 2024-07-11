@@ -12,10 +12,13 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 2  # Ensure we fetch enough history to access HEAD^
 
     - name: Find new folder
       id: newfolder
       run: |
+        git fetch --depth=2
         NEW_FOLDER=$(git diff --name-only HEAD^ HEAD | grep -oE '^[^/]+/' | sort -u | head -n 1)
         echo "NEW_FOLDER=${NEW_FOLDER}" >> $GITHUB_ENV
       shell: bash
