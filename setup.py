@@ -57,6 +57,8 @@ jobs:
         # Create a directory for the app
         mkdir $DIRECTORY
 
+        echo "New folder is: ${{ env.NEW_FOLDER }}"
+
         # Copy Streamlit app code into the directory
         cp ${{ env.NEW_FOLDER }}streamlit.py $DIRECTORY/app.py
         cp ${{ env.NEW_FOLDER }}requirements.txt $DIRECTORY/
