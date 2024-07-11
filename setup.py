@@ -1,93 +1,92 @@
-name: Deploy to AWS Elastic Beanstalk
+import os
+import boto3
+import subprocess
+import uuid
 
-on:
-  push:
-    paths:
-      - '**/**'
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.getenv('AWS_REGION')
+S3_BUCKET = os.getenv('S3_BUCKET')
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+# Initialize Boto3 clients
+s3_client = boto3.client('s3', region_name=AWS_REGION)
+eb_client = boto3.client('elasticbeanstalk', region_name=AWS_REGION)
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2  # Ensure we fetch enough history to access HEAD^
+def create_s3_bucket(bucket_name):
+    existing_buckets = s3_client.list_buckets().get('Buckets')
+    if bucket_name not in [bucket['Name'] for bucket in existing_buckets]:
+        s3_client.create_bucket(Bucket=bucket_name)
 
-    - name: Find new folder
-      id: newfolder
-      run: |
-        git fetch --depth=2
-        NEW_FOLDER=$(git diff --name-only HEAD^ HEAD | grep -oE '^[^/]+/' | sort -u | head -n 1)
-        echo "NEW_FOLDER=${NEW_FOLDER}" >> $GITHUB_ENV
-      shell: bash
+def upload_to_s3(identifier):
+    file_name = f"{identifier}.zip"
+    subprocess.run(['zip', '-r', file_name, f"{identifier}-app"])
+    s3_client.upload_file(file_name, S3_BUCKET, file_name)
+    return file_name
 
-    - name: Debug new folder
-      run: echo "New folder is: ${{ env.NEW_FOLDER }}"
-      shell: bash
+def create_eb_application(application_name):
+    applications = eb_client.describe_applications()['Applications']
+    if application_name not in [app['ApplicationName'] for app in applications]:
+        eb_client.create_application(ApplicationName=application_name)
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
+def create_eb_application_version(application_name, version_label, s3_key):
+    eb_client.create_application_version(
+        ApplicationName=application_name,
+        VersionLabel=version_label,
+        SourceBundle={
+            'S3Bucket': S3_BUCKET,
+            'S3Key': s3_key
+        }
+    )
 
-    - name: Install dependencies
-      run: |
-        cd ${{ env.NEW_FOLDER }}
-        if [ -f requirements.txt ]; then
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-        else
-          echo "No requirements.txt found in the new folder."
-          exit 1
-        fi
-      shell: bash
+def create_eb_environment(application_name, environment_name, version_label):
+    environments = eb_client.describe_environments(ApplicationName=application_name)['Environments']
+    if environment_name not in [env['EnvironmentName'] for env in environments]:
+        eb_client.create_environment(
+            ApplicationName=application_name,
+            EnvironmentName=environment_name,
+            VersionLabel=version_label,
+            SolutionStackName='64bit Amazon Linux 2 v3.4.5 running Python 3.8'
+        )
+    else:
+        eb_client.update_environment(
+            EnvironmentName=environment_name,
+            VersionLabel=version_label
+        )
 
-    - name: Deploy to AWS Elastic Beanstalk
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ secrets.AWS_REGION }}
-        S3_BUCKET: ${{ secrets.S3_BUCKET }}
-        NEW_FOLDER: ${{ env.NEW_FOLDER }}
-      run: |
-        UNIQUE_ID=$(uuidgen)
-        DIRECTORY="${UNIQUE_ID}-app"
-        
-        # Create a directory for the app
-        mkdir $DIRECTORY
+def get_environment_url(application_name, environment_name):
+    environments = eb_client.describe_environments(ApplicationName=application_name, EnvironmentNames=[environment_name])['Environments']
+    if environments and 'CNAME' in environments[0]:
+        return environments[0]['CNAME']
+    else:
+        print(f"Environment URL not found for {environment_name}")
+        return None
 
-        # Copy Streamlit app code into the directory
-        cp ${{ env.NEW_FOLDER }}/streamlit.py $DIRECTORY/app.py
-        cp ${{ env.NEW_FOLDER }}/requirements.txt $DIRECTORY/
+def main():
+    unique_id = str(uuid.uuid4())
+    identifier = unique_id
 
-        # Navigate to the app directory
-        cd $DIRECTORY
+    # Create a directory for the app
+    directory = f"{identifier}-app"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-        # Create a Procfile for the app
-        echo "web: streamlit run app.py --server.port \$PORT" > Procfile
+    # Copy contents from the current branch to the directory
+    subprocess.run(['cp', '-r', '.', directory])
 
-        # Zip the application
-        cd ..
-        zip -r ${UNIQUE_ID}.zip $DIRECTORY
+    create_s3_bucket(S3_BUCKET)
+    s3_key = upload_to_s3(identifier)
+    application_name = f"{identifier}-app"
+    environment_name = f"{identifier}-env"
+    version_label = identifier
 
-        # Upload the application to S3
-        aws s3 cp ${UNIQUE_ID}.zip s3://${S3_BUCKET}/${UNIQUE_ID}.zip
+    create_eb_application(application_name)
+    create_eb_application_version(application_name, version_label, s3_key)
+    create_eb_environment(application_name, environment_name, version_label)
 
-        # Create an Elastic Beanstalk application
-        aws elasticbeanstalk create-application --application-name "${UNIQUE_ID}-app"
+    # Get the environment URL
+    env_url = get_environment_url(application_name, environment_name)
+    if env_url:
+        print(f"The Streamlit app is deployed at: http://{env_url}")
 
-        # Create an Elastic Beanstalk application version
-        aws elasticbeanstalk create-application-version --application-name "${UNIQUE_ID}-app" --version-label "${UNIQUE_ID}" --source-bundle S3Bucket=${S3_BUCKET},S3Key=${UNIQUE_ID}.zip
-
-        # Create an Elastic Beanstalk environment
-        aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.4.5 running Python 3.8"
-
-        # Get the environment URL
-        ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "${UNIQUE_ID}-app" --environment-names "${UNIQUE_ID}-env" --query "Environments[0].CNAME" --output text)
-        echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
-
-    - name: Print URL
-      run: echo "The Streamlit app is deployed at: ${{ env.ENV_URL }}"
-      shell: bash
+if __name__ == '__main__':
+    main()
