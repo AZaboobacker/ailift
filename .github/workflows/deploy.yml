@@ -57,8 +57,8 @@ jobs:
     - name: Format Subnets
       id: format_subnets
       run: |
-        SUBNETS_STRING=$(echo "${{ secrets.SUBNETS }}" | sed 's/,/, /g')
-        ELB_SUBNETS_STRING=$(echo "${{ secrets.ELB_SUBNETS }}" | sed 's/,/, /g')
+        SUBNETS_STRING=$(echo "${{ secrets.SUBNETS }}" | sed 's/ //g')
+        ELB_SUBNETS_STRING=$(echo "${{ secrets.ELB_SUBNETS }}" | sed 's/ //g')
         echo "SUBNETS_STRING=$SUBNETS_STRING" >> $GITHUB_ENV
         echo "ELB_SUBNETS_STRING=$ELB_SUBNETS_STRING" >> $GITHUB_ENV
       shell: bash
