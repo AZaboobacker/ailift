@@ -50,6 +50,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
         S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        NEW_FOLDER: ${{ env.NEW_FOLDER }}
       run: |
         UNIQUE_ID=$(uuidgen)
         DIRECTORY="${UNIQUE_ID}-app"
