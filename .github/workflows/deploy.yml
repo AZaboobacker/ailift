@@ -57,8 +57,8 @@ jobs:
     - name: Convert Subnets to Strings
       id: convert_subnets
       run: |
-        echo "SUBNETS_STRING=$(echo '${{ secrets.SUBNETS }}' | tr ' ' ',')" >> $GITHUB_ENV
-        echo "ELB_SUBNETS_STRING=$(echo '${{ secrets.ELB_SUBNETS }}' | tr ' ' ',')" >> $GITHUB_ENV
+        echo "SUBNETS_STRING=${{ secrets.SUBNETS }}" >> $GITHUB_ENV
+        echo "ELB_SUBNETS_STRING=${{ secrets.ELB_SUBNETS }}" >> $GITHUB_ENV
       shell: bash
 
     - name: Debug Converted Subnets
@@ -116,8 +116,8 @@ jobs:
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
           --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
           --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=${{ secrets.VPC_ID }} \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ env.SUBNETS_STRING }}" \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ env.ELB_SUBNETS_STRING }}"
+          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ env.SUBNETS_STRING// /}}" \
+          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ env.ELB_SUBNETS_STRING// /}}"
 
         # Wait for the environment to be ready
         MAX_ATTEMPTS=30
