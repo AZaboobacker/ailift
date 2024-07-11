@@ -108,8 +108,8 @@ jobs:
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
           --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
           --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=${{ secrets.VPC_ID }} \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ env.SUBNETS_STRING }}" \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ env.SUBNETS_STRING }}"
+          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="subnet-0d454efcc8824d9dc,subnet-0c7b37e8030ab4bce" \
+          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="subnet-0d454efcc8824d9dc,subnet-0c7b37e8030ab4bce"
 
         # Wait for the environment to be ready
         MAX_ATTEMPTS=30
