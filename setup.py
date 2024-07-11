@@ -63,16 +63,11 @@ def main():
 
     # Copy contents from the current branch to the directory
     subprocess.run(['cp', '-r', '.', directory])
-    subprocess.run(['mv', f"{directory}/requirements.txt", directory])
-    subprocess.run(['mv', f"{directory}/app.py", directory])
 
     create_s3_bucket(S3_BUCKET)
     s3_key = upload_to_s3(identifier)
     create_eb_application(identifier + '-app')
     create_eb_environment(identifier + '-app', identifier + '-env', s3_key)
-
-    # Push the changes to the repository
-    subprocess.run(['git', 'push'])
 
     # Get the environment URL
     env_url = get_environment_url(identifier + '-env')
