@@ -84,8 +84,28 @@ jobs:
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role
 
         # Wait for the environment to be ready
-        aws elasticbeanstalk wait environment-exists --environment-names "${UNIQUE_ID}-env"
-        aws elasticbeanstalk wait environment-health-ok --environment-names "${UNIQUE_ID}-env"
+        MAX_ATTEMPTS=30
+        SLEEP_INTERVAL=60
+        ATTEMPT=0
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          STATUS=$(aws elasticbeanstalk describe-environments --environment-names "${UNIQUE_ID}-env" --query "Environments[0].Status" --output text)
+          echo "Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS: Environment status is $STATUS"
+          if [ "$STATUS" == "Ready" ]; then
+            echo "Environment is ready!"
+            break
+          fi
+          if [ "$STATUS" == "Terminated" ] || [ "$STATUS" == "Terminating" ]; then
+            echo "Environment creation failed or is terminating. Exiting..."
+            exit 1
+          fi
+          ATTEMPT=$((ATTEMPT+1))
+          sleep $SLEEP_INTERVAL
+        done
+
+        if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+          echo "Max attempts reached. Environment did not become ready in time."
+          exit 1
+        fi
 
         # Get the environment URL
         ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "${UNIQUE_ID}-app" --environment-names "${UNIQUE_ID}-env" --query "Environments[0].CNAME" --output text)
