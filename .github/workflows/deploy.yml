@@ -11,10 +11,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.8'
 
@@ -35,8 +35,9 @@ jobs:
     - name: Get deployed app URL
       id: get-url
       run: |
-        echo "IDENTIFIER=$(git log -1 --pretty=%B | grep -oP '(?<=Add directory for ).*')" >> $GITHUB_ENV
-        echo "ENV_URL=$(python -c \"import boto3; client = boto3.client('elasticbeanstalk', region_name='${{ secrets.AWS_REGION }}'); environments = client.describe_environments(EnvironmentNames=['${{ env.IDENTIFIER }}-env'])['Environments']; print(environments[0]['CNAME']) if environments else ''\")" >> $GITHUB_ENV
+        IDENTIFIER=$(git log -1 --pretty=%B | grep -oP '(?<=Add directory for ).*')
+        ENV_URL=$(python -c "import boto3; client = boto3.client('elasticbeanstalk', region_name='${{ secrets.AWS_REGION }}'); environments = client.describe_environments(EnvironmentNames=['${IDENTIFIER}-env'])['Environments']; print(environments[0]['CNAME']) if environments else ''")
+        echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
 
     - name: Print URL
       run: echo "The Streamlit app is deployed at:http://$ENV_URL"
