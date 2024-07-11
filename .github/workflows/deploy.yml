@@ -57,10 +57,14 @@ jobs:
     - name: Convert Subnets to Strings
       id: convert_subnets
       run: |
-        SUBNETS=${{ secrets.SUBNETS }}
-        ELB_SUBNETS=${{ secrets.ELB_SUBNETS }}
-        echo "SUBNETS_STRING=${SUBNETS// /,}" >> $GITHUB_ENV
-        echo "ELB_SUBNETS_STRING=${ELB_SUBNETS// /,}" >> $GITHUB_ENV
+        echo "SUBNETS_STRING=$(echo '${{ secrets.SUBNETS }}' | tr ' ' ',')" >> $GITHUB_ENV
+        echo "ELB_SUBNETS_STRING=$(echo '${{ secrets.ELB_SUBNETS }}' | tr ' ' ',')" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Debug Converted Subnets
+      run: |
+        echo "Converted SUBNETS: ${{ env.SUBNETS_STRING }}"
+        echo "Converted ELB_SUBNETS: ${{ env.ELB_SUBNETS_STRING }}"
       shell: bash
 
     - name: Deploy to AWS Elastic Beanstalk
