@@ -2,42 +2,50 @@ name: Deploy to AWS Elastic Beanstalk
 
 on:
   push:
-    branches:
-      - '*'
+    paths:
+      - '**/**'
 
 jobs:
-  setup:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v2
+
+    - name: Find new folder
+      id: newfolder
+      run: |
+        NEW_FOLDER=$(git diff --name-only HEAD^ HEAD | grep -oE '^[^/]+/' | sort -u | head -n 1)
+        echo "NEW_FOLDER=${NEW_FOLDER}" >> $GITHUB_ENV
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v2
       with:
         python-version: '3.8'
 
     - name: Install dependencies
       run: |
+        cd ${{ env.NEW_FOLDER }}
         python -m pip install --upgrade pip
-        pip install boto3
+        pip install -r requirements.txt
 
-    - name: Run setup script
-      id: setup
-      run: python setup.py
+    - name: Deploy to AWS Elastic Beanstalk
+      run: |
+        cd ${{ env.NEW_FOLDER }}
+        eb init -p python-3.7 my-app --region ${{ secrets.AWS_REGION }}
+        eb create ${{ env.NEW_FOLDER }}-env
+        eb deploy ${{ env.NEW_FOLDER }}-env
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
-        S3_BUCKET: ${{ secrets.S3_BUCKET }}
 
     - name: Get deployed app URL
       id: get-url
       run: |
-        IDENTIFIER=$(git log -1 --pretty=%B | grep -oP '(?<=Add directory for ).*')
-        ENV_URL=$(python -c "import boto3; client = boto3.client('elasticbeanstalk', region_name='${{ secrets.AWS_REGION }}'); environments = client.describe_environments(EnvironmentNames=['${IDENTIFIER}-env'])['Environments']; print(environments[0]['CNAME']) if environments else ''")
+        ENV_URL=$(aws elasticbeanstalk describe-environments --environment-names ${{ env.NEW_FOLDER }}-env --query 'Environments[0].CNAME' --output text --region ${{ secrets.AWS_REGION }})
         echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
 
     - name: Print URL
-      run: echo "The Streamlit app is deployed at:http://$ENV_URL"
+      run: echo "The Streamlit app is deployed at:${{ env.ENV_URL }}"
