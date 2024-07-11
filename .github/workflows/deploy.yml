@@ -54,21 +54,6 @@ jobs:
         echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
       shell: bash
 
-    - name: Format Subnets
-      id: format_subnets
-      run: |
-        SUBNETS_STRING=$(echo "${{ secrets.SUBNETS }}" | sed 's/ //g')
-        ELB_SUBNETS_STRING=$(echo "${{ secrets.ELB_SUBNETS }}" | sed 's/ //g')
-        echo "SUBNETS_STRING=$SUBNETS_STRING" >> $GITHUB_ENV
-        echo "ELB_SUBNETS_STRING=$ELB_SUBNETS_STRING" >> $GITHUB_ENV
-      shell: bash
-
-    - name: Debug Formatted Subnets
-      run: |
-        echo "Formatted SUBNETS: ${{ env.SUBNETS_STRING }}"
-        echo "Formatted ELB_SUBNETS: ${{ env.ELB_SUBNETS_STRING }}"
-      shell: bash
-
     - name: Deploy to AWS Elastic Beanstalk
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -76,8 +61,8 @@ jobs:
         AWS_REGION: ${{ secrets.AWS_REGION }}
         S3_BUCKET: ${{ secrets.S3_BUCKET }}
         VPC_ID: ${{ secrets.VPC_ID }}
-        SUBNETS: ${{ env.SUBNETS_STRING }}
-        ELB_SUBNETS: ${{ env.ELB_SUBNETS_STRING }}
+        SUBNETS: ${{ secrets.SUBNETS }}
+        ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}
       run: |
         UNIQUE_ID=$(uuidgen)
         DIRECTORY="${UNIQUE_ID}-app"
@@ -108,18 +93,12 @@ jobs:
         # Create an Elastic Beanstalk application version
         aws elasticbeanstalk create-application-version --application-name "${UNIQUE_ID}-app" --version-label "${UNIQUE_ID}" --source-bundle S3Bucket=${S3_BUCKET},S3Key=${UNIQUE_ID}.zip
 
-        # Debug step to print out the variables before creating the environment
-        echo "Creating Elastic Beanstalk environment with the following settings:"
-        echo "VPC_ID: ${{ secrets.VPC_ID }}"
-        echo "SUBNETS: ${{ env.SUBNETS_STRING }}"
-        echo "ELB_SUBNETS: ${{ env.ELB_SUBNETS_STRING }}"
-
         # Create an Elastic Beanstalk environment with an instance profile and VPC settings
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
           --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
           --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=${{ secrets.VPC_ID }} \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="subnet-0d454efcc8824d9dc,subnet-0c7b37e8030ab4bce" \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="subnet-0d454efcc8824d9dc,subnet-0c7b37e8030ab4bce"
+          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ secrets.SUBNETS }}" \
+          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ secrets.ELB_SUBNETS }}"
 
         # Wait for the environment to be ready
         MAX_ATTEMPTS=30
