@@ -54,11 +54,13 @@ jobs:
         echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
       shell: bash
 
-    - name: Remove Spaces from Subnets
+    - name: Format Subnets
       id: format_subnets
       run: |
-        echo "SUBNETS_STRING=$(echo '${{ secrets.SUBNETS }}' | sed 's/ //g')" >> $GITHUB_ENV
-        echo "ELB_SUBNETS_STRING=$(echo '${{ secrets.ELB_SUBNETS }}' | sed 's/ //g')" >> $GITHUB_ENV
+        SUBNETS_STRING=$(echo "${{ secrets.SUBNETS }}" | sed 's/,/, /g')
+        ELB_SUBNETS_STRING=$(echo "${{ secrets.ELB_SUBNETS }}" | sed 's/,/, /g')
+        echo "SUBNETS_STRING=$SUBNETS_STRING" >> $GITHUB_ENV
+        echo "ELB_SUBNETS_STRING=$ELB_SUBNETS_STRING" >> $GITHUB_ENV
       shell: bash
 
     - name: Debug Formatted Subnets
