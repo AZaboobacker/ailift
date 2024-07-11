@@ -24,7 +24,7 @@ jobs:
       shell: bash
 
     - name: Debug new folder
-      run: echo "New folder is: ${{ env.NEW_FOLDER }}"
+      run: echo "New folder is:${{ env.NEW_FOLDER }}"
       shell: bash
 
     - name: Set up Python
@@ -92,5 +92,5 @@ jobs:
         echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
 
     - name: Print URL
-      run: echo "The Streamlit app is deployed at: ${{ env.ENV_URL }}"
+      run: echo "The Streamlit app is deployed at:${{ env.ENV_URL }}"
       shell: bash
