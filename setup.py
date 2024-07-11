@@ -39,7 +39,7 @@ def create_eb_environment(application_name, environment_name, s3_key):
                 'S3Bucket': S3_BUCKET,
                 'S3Key': s3_key
             },
-            SolutionStackName='64bit Amazon Linux 2 v3.1.5 running Python 3.8'
+            SolutionStackName='64bit Amazon Linux 2 v3.3.14 running Python 3.8'
         )
     else:
         eb_client.update_environment(
