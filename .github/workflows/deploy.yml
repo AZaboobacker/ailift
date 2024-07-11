@@ -54,7 +54,7 @@ jobs:
         echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
       shell: bash
 
-    - name: Format Subnets
+    - name: Remove Spaces from Subnets
       id: format_subnets
       run: |
         echo "SUBNETS_STRING=$(echo '${{ secrets.SUBNETS }}' | sed 's/ //g')" >> $GITHUB_ENV
