@@ -54,6 +54,12 @@ jobs:
         echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
       shell: bash
 
+    - name: Debug Environment Variables
+      run: |
+        echo "SUBNETS: ${{ secrets.SUBNETS }}"
+        echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
+      shell: bash
+
     - name: Deploy to AWS Elastic Beanstalk
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
