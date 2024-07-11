@@ -92,7 +92,7 @@ jobs:
         aws elasticbeanstalk create-application-version --application-name "${UNIQUE_ID}-app" --version-label "${UNIQUE_ID}" --source-bundle S3Bucket=${S3_BUCKET},S3Key=${UNIQUE_ID}.zip
 
         # Create an Elastic Beanstalk environment with an instance profile and VPC settings
-        aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.4.5 running Python 3.8" \
+        aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
           --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
           --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=${{ secrets.VPC_ID }} \
           --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value=${{ secrets.SUBNET1 }} \
