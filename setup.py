@@ -28,29 +28,38 @@ def create_eb_application(application_name):
     if application_name not in [app['ApplicationName'] for app in applications]:
         eb_client.create_application(ApplicationName=application_name)
 
-def create_eb_environment(application_name, environment_name, s3_key):
+def create_eb_application_version(application_name, version_label, s3_key):
+    eb_client.create_application_version(
+        ApplicationName=application_name,
+        VersionLabel=version_label,
+        SourceBundle={
+            'S3Bucket': S3_BUCKET,
+            'S3Key': s3_key
+        }
+    )
+
+def create_eb_environment(application_name, environment_name, version_label):
     environments = eb_client.describe_environments(ApplicationName=application_name)['Environments']
     if environment_name not in [env['EnvironmentName'] for env in environments]:
         eb_client.create_environment(
             ApplicationName=application_name,
             EnvironmentName=environment_name,
-            VersionLabel=s3_key,
-            SourceBundle={
-                'S3Bucket': S3_BUCKET,
-                'S3Key': s3_key
-            },
+            VersionLabel=version_label,
             SolutionStackName='64bit Amazon Linux 2 v3.3.14 running Python 3.8'
         )
     else:
         eb_client.update_environment(
             EnvironmentName=environment_name,
-            VersionLabel=s3_key
+            VersionLabel=version_label
         )
 
-def get_environment_url(environment_name):
-    environments = eb_client.describe_environments(EnvironmentNames=[environment_name])['Environments']
-    if environments:
+def get_environment_url(application_name, environment_name):
+    environments = eb_client.describe_environments(ApplicationName=application_name, EnvironmentNames=[environment_name])['Environments']
+    if environments and 'CNAME' in environments[0]:
         return environments[0]['CNAME']
+    else:
+        print(f"Environment URL not found for {environment_name}")
+        return None
 
 def main():
     unique_id = str(uuid.uuid4())
@@ -63,19 +72,19 @@ def main():
 
     # Copy contents from the current branch to the directory
     subprocess.run(['cp', '-r', '.', directory])
-    subprocess.run(['mv', f"{directory}/requirements.txt", directory])
-    subprocess.run(['mv', f"{directory}/app.py", directory])
 
     create_s3_bucket(S3_BUCKET)
     s3_key = upload_to_s3(identifier)
-    create_eb_application(identifier + '-app')
-    create_eb_environment(identifier + '-app', identifier + '-env', s3_key)
+    application_name = f"{identifier}-app"
+    environment_name = f"{identifier}-env"
+    version_label = identifier
 
-    # Push the changes to the repository
-    subprocess.run(['git', 'push'])
+    create_eb_application(application_name)
+    create_eb_application_version(application_name, version_label, s3_key)
+    create_eb_environment(application_name, environment_name, version_label)
 
     # Get the environment URL
-    env_url = get_environment_url(identifier + '-env')
+    env_url = get_environment_url(application_name, environment_name)
     if env_url:
         print(f"The Streamlit app is deployed at: http://{env_url}")
 
