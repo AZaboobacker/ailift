@@ -24,7 +24,7 @@ jobs:
       shell: bash
 
     - name: Debug new folder
-      run: echo "New folder is:${{ env.NEW_FOLDER }}"
+      run: echo "New folder is: ${{ env.NEW_FOLDER }}"
       shell: bash
 
     - name: Set up Python
@@ -83,10 +83,14 @@ jobs:
         # Create an Elastic Beanstalk environment
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8"
 
+        # Wait for the environment to be ready
+        aws elasticbeanstalk wait environment-exists --environment-names "${UNIQUE_ID}-env"
+        aws elasticbeanstalk wait environment-health-ok --environment-names "${UNIQUE_ID}-env"
+
         # Get the environment URL
         ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "${UNIQUE_ID}-app" --environment-names "${UNIQUE_ID}-env" --query "Environments[0].CNAME" --output text)
         echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
 
     - name: Print URL
-      run: echo "The Streamlit app is deployed at:${{ env.ENV_URL }}"
+      run: echo "The Streamlit app is deployed at: ${{ env.ENV_URL }}"
       shell: bash
