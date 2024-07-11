@@ -44,13 +44,22 @@ jobs:
         fi
       shell: bash
 
-    # Debug step to print out the secrets
     - name: Debug Secrets
       run: |
         echo "AWS_REGION: ${{ secrets.AWS_REGION }}"
         echo "S3_BUCKET: ${{ secrets.S3_BUCKET }}"
         echo "VPC_ID: ${{ secrets.VPC_ID }}"
-        echo "SUBNET: ${{ secrets.SUBNET1 }}"
+        echo "SUBNET1: ${{ secrets.SUBNET1 }}"
+      shell: bash
+
+    - name: Verify Subnet Value
+      run: |
+        if [ -z "${{ secrets.SUBNET1 }}" ]; then
+          echo "SUBNET1 is empty!"
+          exit 1
+        else
+          echo "SUBNET1 value: '${{ secrets.SUBNET1 }}'"
+        fi
       shell: bash
 
     - name: Deploy to AWS Elastic Beanstalk
@@ -69,8 +78,8 @@ jobs:
         mkdir $DIRECTORY
 
         # Copy Streamlit app code into the directory
-        cp ${{ env.NEW_FOLDER }}streamlit.py $DIRECTORY/app.py
-        cp ${{ env.NEW_FOLDER }}requirements.txt $DIRECTORY/
+        cp ${{ env.NEW_FOLDER }}/streamlit.py $DIRECTORY/app.py
+        cp ${{ env.NEW_FOLDER }}/requirements.txt $DIRECTORY/
 
         # Navigate to the app directory
         cd $DIRECTORY
