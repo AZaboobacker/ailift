@@ -54,10 +54,13 @@ jobs:
         echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
       shell: bash
 
-    - name: Debug Environment Variables
+    - name: Convert Subnets to Strings
+      id: convert_subnets
       run: |
-        echo "SUBNETS: ${{ secrets.SUBNETS }}"
-        echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
+        SUBNETS=${{ secrets.SUBNETS }}
+        ELB_SUBNETS=${{ secrets.ELB_SUBNETS }}
+        echo "SUBNETS_STRING=${SUBNETS// /,}" >> $GITHUB_ENV
+        echo "ELB_SUBNETS_STRING=${ELB_SUBNETS// /,}" >> $GITHUB_ENV
       shell: bash
 
     - name: Deploy to AWS Elastic Beanstalk
@@ -67,8 +70,8 @@ jobs:
         AWS_REGION: ${{ secrets.AWS_REGION }}
         S3_BUCKET: ${{ secrets.S3_BUCKET }}
         VPC_ID: ${{ secrets.VPC_ID }}
-        SUBNETS: ${{ secrets.SUBNETS }}
-        ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}
+        SUBNETS: ${{ env.SUBNETS_STRING }}
+        ELB_SUBNETS: ${{ env.ELB_SUBNETS_STRING }}
       run: |
         UNIQUE_ID=$(uuidgen)
         DIRECTORY="${UNIQUE_ID}-app"
@@ -102,15 +105,15 @@ jobs:
         # Debug step to print out the variables before creating the environment
         echo "Creating Elastic Beanstalk environment with the following settings:"
         echo "VPC_ID: ${{ secrets.VPC_ID }}"
-        echo "SUBNETS: ${{ secrets.SUBNETS }}"
-        echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
+        echo "SUBNETS: ${{ env.SUBNETS_STRING }}"
+        echo "ELB_SUBNETS: ${{ env.ELB_SUBNETS_STRING }}"
 
         # Create an Elastic Beanstalk environment with an instance profile and VPC settings
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
           --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
           --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=${{ secrets.VPC_ID }} \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value=${{ secrets.SUBNETS }} \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value=${{ secrets.ELB_SUBNETS }}
+          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value="${{ env.SUBNETS_STRING }}" \
+          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value="${{ env.ELB_SUBNETS_STRING }}"
 
         # Wait for the environment to be ready
         MAX_ATTEMPTS=30
