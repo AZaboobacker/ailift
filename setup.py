@@ -82,7 +82,7 @@ jobs:
 
         # Create an Elastic Beanstalk environment
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.4.5 running Python 3.8"
-        
+
         # Get the environment URL
         ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "${UNIQUE_ID}-app" --environment-names "${UNIQUE_ID}-env" --query "Environments[0].CNAME" --output text)
         echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
