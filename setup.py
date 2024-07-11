@@ -31,7 +31,7 @@ jobs:
         AWS_REGION: ${{ secrets.AWS_REGION }}
         S3_BUCKET: ${{ secrets.S3_BUCKET }}
       run: |
-        for dir in $(find . -type d -name '*'); do
+        for dir in $(find . -type d); do
           if [ -f "$dir/streamlit.py" ] && [ -f "$dir/requirements.txt" ]; then
             UNIQUE_ID=$(uuidgen)
             DIRECTORY="$UNIQUE_ID-app"
