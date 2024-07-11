@@ -45,7 +45,7 @@ def create_eb_environment(application_name, environment_name, version_label):
             ApplicationName=application_name,
             EnvironmentName=environment_name,
             VersionLabel=version_label,
-            SolutionStackName='64bit Amazon Linux 2 v3.2.12 running Python 3.8'
+            SolutionStackName='64bit Amazon Linux 2 v3.4.10 running Python 3.8'
         )
     else:
         eb_client.update_environment(
