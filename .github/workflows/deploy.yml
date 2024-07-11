@@ -66,4 +66,4 @@ jobs:
         echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
 
     - name: Print URL
-      run: echo "The Streamlit app is deployed at: ${{ env.ENV_URL }}"
+      run: echo "The Streamlit app is deployed at:${{ env.ENV_URL }}"
