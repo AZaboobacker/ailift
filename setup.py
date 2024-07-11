@@ -31,11 +31,11 @@ jobs:
         AWS_REGION: ${{ secrets.AWS_REGION }}
         S3_BUCKET: ${{ secrets.S3_BUCKET }}
       run: |
-        for dir in $(find . -type d); do
+        for dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
           if [ -f "$dir/streamlit.py" ] && [ -f "$dir/requirements.txt" ]; then
             UNIQUE_ID=$(uuidgen)
-            DIRECTORY="$UNIQUE_ID-app"
-            
+            DIRECTORY="${UNIQUE_ID}-app"
+
             # Create a directory for the app
             mkdir $DIRECTORY
 
@@ -64,7 +64,7 @@ jobs:
 
             # Create an Elastic Beanstalk environment
             aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.4.5 running Python 3.8"
-            
+
             # Get the environment URL
             ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "${UNIQUE_ID}-app" --environment-names "${UNIQUE_ID}-env" --query "Environments[0].CNAME" --output text)
             echo "The Streamlit app for $dir is deployed at: http://$ENV_URL"
