@@ -44,6 +44,16 @@ jobs:
         fi
       shell: bash
 
+    # Debug step to print out the secrets
+    - name: Debug Secrets
+      run: |
+        echo "AWS_REGION: ${{ secrets.AWS_REGION }}"
+        echo "S3_BUCKET: ${{ secrets.S3_BUCKET }}"
+        echo "VPC_ID: ${{ secrets.VPC_ID }}"
+        echo "SUBNETS: ${{ secrets.SUBNETS }}"
+        echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
+      shell: bash
+
     - name: Deploy to AWS Elastic Beanstalk
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -82,6 +92,12 @@ jobs:
 
         # Create an Elastic Beanstalk application version
         aws elasticbeanstalk create-application-version --application-name "${UNIQUE_ID}-app" --version-label "${UNIQUE_ID}" --source-bundle S3Bucket=${S3_BUCKET},S3Key=${UNIQUE_ID}.zip
+
+        # Debug step to print out the variables before creating the environment
+        echo "Creating Elastic Beanstalk environment with the following settings:"
+        echo "VPC_ID: ${{ secrets.VPC_ID }}"
+        echo "SUBNETS: ${{ secrets.SUBNETS }}"
+        echo "ELB_SUBNETS: ${{ secrets.ELB_SUBNETS }}"
 
         # Create an Elastic Beanstalk environment with an instance profile and VPC settings
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
