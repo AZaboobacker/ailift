@@ -53,10 +53,13 @@ def create_eb_environment(application_name, environment_name, version_label):
             VersionLabel=version_label
         )
 
-def get_environment_url(environment_name):
-    environments = eb_client.describe_environments(EnvironmentNames=[environment_name])['Environments']
-    if environments:
+def get_environment_url(application_name, environment_name):
+    environments = eb_client.describe_environments(ApplicationName=application_name, EnvironmentNames=[environment_name])['Environments']
+    if environments and 'CNAME' in environments[0]:
         return environments[0]['CNAME']
+    else:
+        print(f"Environment URL not found for {environment_name}")
+        return None
 
 def main():
     unique_id = str(uuid.uuid4())
@@ -81,7 +84,7 @@ def main():
     create_eb_environment(application_name, environment_name, version_label)
 
     # Get the environment URL
-    env_url = get_environment_url(environment_name)
+    env_url = get_environment_url(application_name, environment_name)
     if env_url:
         print(f"The Streamlit app is deployed at: http://{env_url}")
 
