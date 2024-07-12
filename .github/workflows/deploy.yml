@@ -76,8 +76,14 @@ jobs:
 
     - name: Update JSON Configuration
       run: |
-        sed -i 's/\${VPC_ID}/${{ env.VPC_ID }}/g' eb-config.json
-        sed -i 's/\${SUBNET1}/${{ env.SUBNET1 }}/g' eb-config.json
+        jq --arg VPC_ID "${{ env.VPC_ID }}" --arg SUBNET1 "${{ env.SUBNET1 }}" \
+        '. | map(if .OptionName == "VPCId" then .Value = $VPC_ID else . end) | map(if .OptionName == "Subnets" then .Value = $SUBNET1 else . end) | map(if .OptionName == "ELBSubnets" then .Value = $SUBNET1 else . end)' \
+        eb-config-template.json > eb-config.json
+      shell: bash
+
+    - name: Verify Updated JSON
+      run: |
+        cat eb-config.json
       shell: bash
 
     - name: Deploy to AWS Elastic Beanstalk
