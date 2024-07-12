@@ -55,7 +55,7 @@ jobs:
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
-    - name: Verify and Create ECR Repository if it doesn't exist
+    - name: Create ECR Repository if it doesn't exist
       run: |
         REPO_NAME=${{ env.NEW_FOLDER }}
         echo "Checking if repository $REPO_NAME exists"
@@ -70,15 +70,11 @@ jobs:
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
-    - name: Copy Dockerfile to new folder
-      run: |
-        cp Dockerfile ${{ env.NEW_FOLDER }}
-
     - name: Build, tag, and push Docker image
       run: |
         REPO_NAME=${{ env.NEW_FOLDER }}
         cd $REPO_NAME
-        docker build -t $REPO_NAME:latest -f ../Dockerfile .
+        docker build -t $REPO_NAME:latest .
         docker tag $REPO_NAME:latest ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
         docker push ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
 
