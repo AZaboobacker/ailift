@@ -68,6 +68,18 @@ jobs:
         echo "VPC_ID=${{ secrets.VPC_ID }}" >> $GITHUB_ENV
       shell: bash
 
+    - name: Verify Environment Variables
+      run: |
+        echo "VPC_ID: ${{ env.VPC_ID }}"
+        echo "SUBNET1: ${{ env.SUBNET1 }}"
+      shell: bash
+
+    - name: Update JSON Configuration
+      run: |
+        sed -i 's/\${VPC_ID}/${{ env.VPC_ID }}/g' eb-config.json
+        sed -i 's/\${SUBNET1}/${{ env.SUBNET1 }}/g' eb-config.json
+      shell: bash
+
     - name: Deploy to AWS Elastic Beanstalk
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -106,17 +118,12 @@ jobs:
         # Create an Elastic Beanstalk application version
         aws elasticbeanstalk create-application-version --application-name "${UNIQUE_ID}-app" --version-label "${UNIQUE_ID}" --source-bundle S3Bucket=${S3_BUCKET},S3Key=${UNIQUE_ID}.zip
 
-        # Debug step to print out the environment variables
+        # Debug step to print out the environment variables before the CLI call
         echo "Creating Elastic Beanstalk environment with the following settings:"
-        echo "VPC_ID: $VPC_ID"
-        echo "SUBNET1: $SUBNET1"
+        cat eb-config.json
 
-        # Create an Elastic Beanstalk environment with an instance profile and VPC settings
-        aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
-          --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=VPCId,Value=$VPC_ID \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=Subnets,Value=$SUBNET1 \
-          --option-settings Namespace=aws:ec2:vpc,OptionName=ELBSubnets,Value=$SUBNET1
+        # Create an Elastic Beanstalk environment with an instance profile and VPC settings using the JSON configuration file
+        aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" --option-settings file://eb-config.json
 
         # Wait for the environment to be ready
         MAX_ATTEMPTS=30
