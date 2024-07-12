@@ -22,12 +22,14 @@ jobs:
       id: newfolder
       run: |
         git fetch --depth=2
-        PREV_COMMIT=$(git log --pretty=format:%H -n 2 | tail -n 1)
-        NEW_COMMIT=$(git log --pretty=format:%H -n 1)
+        # Get the commit hashes
+        PREV_COMMIT=$(git rev-parse HEAD~1)
+        NEW_COMMIT=$(git rev-parse HEAD)
         echo "Previous commit: $PREV_COMMIT"
         echo "New commit: $NEW_COMMIT"
         
-        NEW_FOLDER=$(git diff --name-only $PREV_COMMIT $NEW_COMMIT | grep -oE '^[^/]+/' | sort -u | head -n 1 || echo "")
+        # Find new or modified folders with requirements.txt and streamlit.py
+        NEW_FOLDER=$(git diff --name-only $PREV_COMMIT $NEW_COMMIT | grep -E '^[^/]+/requirements.txt' | cut -d'/' -f1 | sort -u | head -n 1)
         if [ -z "$NEW_FOLDER" ]; then
           echo "No new folder detected. Exiting."
           exit 1
