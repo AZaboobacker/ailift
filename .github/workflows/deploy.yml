@@ -56,8 +56,9 @@ jobs:
 
     - name: Create ECR Repository if it doesn't exist
       run: |
-        aws ecr describe-repositories --repository-names ${{ env.NEW_FOLDER%/ }} || \
-        aws ecr create-repository --repository-name ${{ env.NEW_FOLDER%/ }}
+        REPO_NAME=$(echo ${{ env.NEW_FOLDER }} | sed 's:/*$::')
+        aws ecr describe-repositories --repository-names $REPO_NAME || \
+        aws ecr create-repository --repository-name $REPO_NAME
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
@@ -68,16 +69,16 @@ jobs:
     - name: Build, tag, and push Docker image
       run: |
         cd ${{ env.NEW_FOLDER }}
-        docker build -t ${NEW_FOLDER%/}:latest -f ../Dockerfile .
-        docker tag ${NEW_FOLDER%/}:latest ${{ secrets.ECR_REGISTRY }}/${NEW_FOLDER%/}:latest
-        docker push ${{ secrets.ECR_REGISTRY }}/${NEW_FOLDER%/}:latest
+        docker build -t $REPO_NAME:latest -f ../Dockerfile .
+        docker tag $REPO_NAME:latest ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
+        docker push ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
 
     - name: Deploy to AWS App Runner
       run: |
-        SERVICE_NAME=${NEW_FOLDER%/}-service
+        SERVICE_NAME=$(echo ${{ env.NEW_FOLDER }} | sed 's:/*$::')-service
         aws apprunner create-service --service-name $SERVICE_NAME --source-configuration "{
           \"ImageRepository\": {
-            \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/${NEW_FOLDER%/}:latest\",
+            \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest\",
             \"ImageConfiguration\": {
               \"Port\": \"8501\"
             }
