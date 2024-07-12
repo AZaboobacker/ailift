@@ -1,9 +1,9 @@
-name: Deploy to AWS Elastic Beanstalk
+name: Deploy to AWS App Runner
 
 on:
   push:
-    paths:
-      - '**/**'
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -11,9 +11,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2  # Ensure we fetch enough history to access HEAD^
+      uses: actions/checkout@v2
 
     - name: Find new folder
       id: newfolder
@@ -24,141 +22,42 @@ jobs:
       shell: bash
 
     - name: Debug new folder
-      run: echo "New folder is:${{ env.NEW_FOLDER }}"
+      run: echo "New folder is: ${{ env.NEW_FOLDER }}"
       shell: bash
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
 
-    - name: Install dependencies
+    - name: Log in to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v1
+      with:
+        registry: ${{ secrets.ECR_REGISTRY }}
+        region: ${{ secrets.AWS_REGION }}
+        access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Build, tag, and push Docker image
       run: |
         cd ${{ env.NEW_FOLDER }}
-        if [ -f requirements.txt ]; then
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-        else
-          echo "No requirements.txt found in the new folder."
-          exit 1
-        fi
-      shell: bash
+        docker build -t ${NEW_FOLDER%/}:latest .
+        docker tag ${NEW_FOLDER%/}:latest ${{ secrets.ECR_REGISTRY }}/${NEW_FOLDER%/}:latest
+        docker push ${{ secrets.ECR_REGISTRY }}/${NEW_FOLDER%/}:latest
 
-    - name: Debug Secrets
+    - name: Deploy to AWS App Runner
       run: |
-        echo "AWS_REGION: ${{ secrets.AWS_REGION }}"
-        echo "S3_BUCKET: ${{ secrets.S3_BUCKET }}"
-        echo "VPC_ID: ${{ secrets.VPC_ID }}"
-        echo "SUBNET1: ${{ secrets.SUBNET1 }}"
-      shell: bash
-
-    - name: Verify Subnet Value
-      run: |
-        if [ -z "${{ secrets.SUBNET1 }}" ]; then
-          echo "SUBNET1 is empty!"
-          exit 1
-        else
-          echo "SUBNET1 value: '${{ secrets.SUBNET1 }}'"
-        fi
-      shell: bash
-
-    - name: Set Environment Variables
-      run: |
-        echo "SUBNET1=${{ secrets.SUBNET1 }}" >> $GITHUB_ENV
-        echo "VPC_ID=${{ secrets.VPC_ID }}" >> $GITHUB_ENV
-      shell: bash
-
-    - name: Verify Environment Variables
-      run: |
-        echo "VPC_ID: ${{ env.VPC_ID }}"
-        echo "SUBNET1: ${{ env.SUBNET1 }}"
-      shell: bash
-
-    - name: Update JSON Configuration
-      run: |
-        jq --arg VPC_ID "${{ env.VPC_ID }}" --arg SUBNET1 "${{ env.SUBNET1 }}" \
-        '. | map(if .OptionName == "VPCId" then .Value = $VPC_ID else . end) | map(if .OptionName == "Subnets" then .Value = $SUBNET1 else . end) | map(if .OptionName == "ELBSubnets" then .Value = $SUBNET1 else . end)' \
-        eb-config-template.json > eb-config.json
-      shell: bash
-
-    - name: Verify Updated JSON
-      run: |
-        cat eb-config.json
-      shell: bash
-
-    - name: Deploy to AWS Elastic Beanstalk
+        SERVICE_NAME=${NEW_FOLDER%/}-service
+        aws apprunner create-service --service-name $SERVICE_NAME --source-configuration "{
+          \"ImageRepository\": {
+            \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/${NEW_FOLDER%/}:latest\",
+            \"ImageConfiguration\": {
+              \"Port\": \"8501\"
+            }
+          },
+          \"AuthenticationConfiguration\": {
+            \"AccessRoleArn\": \"${{ secrets.APP_RUNNER_ROLE_ARN }}\"
+          }
+        }"
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
-        S3_BUCKET: ${{ secrets.S3_BUCKET }}
-        VPC_ID: ${{ env.VPC_ID }}
-        SUBNET1: ${{ env.SUBNET1 }}
-      run: |
-        UNIQUE_ID=$(uuidgen)
-        DIRECTORY="${UNIQUE_ID}-app"
-        
-        # Create a directory for the app
-        mkdir $DIRECTORY
-
-        # Copy Streamlit app code into the directory
-        cp ${{ env.NEW_FOLDER }}streamlit.py $DIRECTORY/app.py
-        cp ${{ env.NEW_FOLDER }}requirements.txt $DIRECTORY/
-
-        # Navigate to the app directory
-        cd $DIRECTORY
-
-        # Create a Procfile for the app
-        echo "web: streamlit run app.py --server.port \$PORT" > Procfile
-
-        # Zip the application
-        cd ..
-        zip -r ${UNIQUE_ID}.zip $DIRECTORY
-
-        # Upload the application to S3
-        aws s3 cp ${UNIQUE_ID}.zip s3://${S3_BUCKET}/${UNIQUE_ID}.zip
-
-        # Create an Elastic Beanstalk application
-        aws elasticbeanstalk create-application --application-name "${UNIQUE_ID}-app"
-
-        # Create an Elastic Beanstalk application version
-        aws elasticbeanstalk create-application-version --application-name "${UNIQUE_ID}-app" --version-label "${UNIQUE_ID}" --source-bundle S3Bucket=${S3_BUCKET},S3Key=${UNIQUE_ID}.zip
-
-        # Debug step to print out the environment variables before the CLI call
-        echo "Creating Elastic Beanstalk environment with the following settings:"
-        cat eb-config.json
-
-        # Create an Elastic Beanstalk environment with an instance profile and VPC settings using the JSON configuration file
-        aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" --option-settings file://eb-config.json
-
-        # Wait for the environment to be ready
-        MAX_ATTEMPTS=30
-        SLEEP_INTERVAL=60
-        ATTEMPT=0
-        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-          STATUS=$(aws elasticbeanstalk describe-environments --environment-names "${UNIQUE_ID}-env" --query "Environments[0].Status" --output text)
-          echo "Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS: Environment status is $STATUS"
-          if [ "$STATUS" == "Ready" ]; then
-            echo "Environment is ready!"
-            break
-          fi
-          if [ "$STATUS" == "Terminated" ] || [ "$STATUS" == "Terminating" ]; then
-            echo "Environment creation failed or is terminating. Exiting..."
-            exit 1
-          fi
-          ATTEMPT=$((ATTEMPT+1))
-          sleep $SLEEP_INTERVAL
-        done
-
-        if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-          echo "Max attempts reached. Environment did not become ready in time."
-          exit 1
-        fi
-
-        # Get the environment URL
-        ENV_URL=$(aws elasticbeanstalk describe-environments --application-name "${UNIQUE_ID}-app" --environment-names "${UNIQUE_ID}-env" --query "Environments[0].CNAME" --output text)
-        echo "ENV_URL=http://$ENV_URL" >> $GITHUB_ENV
-
-    - name: Print URL
-      run: echo "The Streamlit app is deployed at:${{ env.ENV_URL }}"
-      shell: bash
