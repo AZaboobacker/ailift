@@ -18,61 +18,36 @@ jobs:
       with:
         python-version: '3.8'
 
-    - name: Find new folder
-      id: newfolder
+    - name: Scan for new folders and set up environment variables
+      id: scan_new_folders
       run: |
-        git fetch --depth=2
-        # Get the commit hashes
-        PREV_COMMIT=$(git log --pretty=format:%H -n 2 | tail -n 1)
-        NEW_COMMIT=$(git log --pretty=format:%H -n 1)
-        echo "Previous commit: $PREV_COMMIT"
-        echo "New commit: $NEW_COMMIT"
-        
-        # Find new or modified folders with requirements.txt
-        NEW_FOLDER=$(git diff --name-only $PREV_COMMIT $NEW_COMMIT | grep -E '^[^/]+/requirements.txt' | cut -d'/' -f1 | sort -u | head -n 1)
-        if [ -z "$NEW_FOLDER" ]; then
-          echo "No new folder detected. Exiting."
+        echo "Scanning for new folders..."
+        NEW_FOLDERS=$(find . -name 'requirements.txt' -exec dirname {} \;)
+        if [ -z "$NEW_FOLDERS" ]; then
+          echo "No new folders found. Exiting."
           exit 1
         fi
-        NEW_FOLDER=$(echo "$NEW_FOLDER" | sed 's:/*$::')
-        APP_NAME=${NEW_FOLDER//[^a-zA-Z0-9]/-}-${GITHUB_SHA::8}
-        echo "NEW_FOLDER=${NEW_FOLDER}" >> $GITHUB_ENV
-        echo "APP_NAME=${APP_NAME}" >> $GITHUB_ENV
-      shell: bash
-
-    - name: Debug new folder and app name
-      run: |
-        echo "New folder is: ${{ env.NEW_FOLDER }}"
-        echo "App name is: ${{ env.APP_NAME }}"
-      shell: bash
+        echo "NEW_FOLDERS=${NEW_FOLDERS}" >> $GITHUB_ENV
+        echo "Found new folders: $NEW_FOLDERS"
 
     - name: Set up Heroku CLI
       run: curl https://cli-assets.heroku.com/install.sh | sh
 
-    - name: Create Heroku App
-      run: |
-        heroku create ${{ env.APP_NAME }}
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-
     - name: Deploy to Heroku
       run: |
-        cd ${{ env.NEW_FOLDER }}
-        git init
-        git remote add heroku https://git.heroku.com/${{ env.APP_NAME }}.git
-        git add .
-        git commit -m "Deploy to Heroku"
-        git push heroku master --force
+        for FOLDER in ${{ env.NEW_FOLDERS }}; do
+          APP_NAME=$(basename $FOLDER)-${GITHUB_SHA::8}
+          echo "Deploying folder $FOLDER to Heroku app $APP_NAME"
+          cd $FOLDER
+          git init
+          heroku create $APP_NAME
+          git remote add heroku https://git.heroku.com/$APP_NAME.git
+          git add .
+          git commit -m "Deploy to Heroku"
+          git push heroku master --force
+          cd ..
+          APP_URL=$(heroku apps:info -a $APP_NAME | grep "Web URL" | awk '{print $3}')
+          echo "The Heroku app is deployed at: $APP_URL"
+        done
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-
-    - name: Get Heroku App URL
-      run: |
-        APP_URL=$(heroku apps:info -a ${{ env.APP_NAME }} | grep "Web URL" | awk '{print $3}')
-        echo "HEROKU_APP_URL=${APP_URL}" >> $GITHUB_ENV
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-
-    - name: Print Heroku App URL
-      run: echo "The Heroku app is deployed at:${{ env.HEROKU_APP_URL }}"
-      shell: bash
