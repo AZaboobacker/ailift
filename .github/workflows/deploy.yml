@@ -31,6 +31,7 @@ jobs:
           echo "No new folder detected. Exiting."
           exit 1
         fi
+        NEW_FOLDER=$(echo "$NEW_FOLDER" | sed 's:/*$::')
         echo "NEW_FOLDER=${NEW_FOLDER}" >> $GITHUB_ENV
       shell: bash
 
@@ -56,7 +57,7 @@ jobs:
 
     - name: Create ECR Repository if it doesn't exist
       run: |
-        REPO_NAME=$(echo ${{ env.NEW_FOLDER }} | sed 's:/*$::')
+        REPO_NAME=${{ env.NEW_FOLDER }}
         aws ecr describe-repositories --repository-names $REPO_NAME || \
         aws ecr create-repository --repository-name $REPO_NAME
       env:
@@ -68,14 +69,15 @@ jobs:
 
     - name: Build, tag, and push Docker image
       run: |
-        cd ${{ env.NEW_FOLDER }}
+        REPO_NAME=${{ env.NEW_FOLDER }}
+        cd $REPO_NAME
         docker build -t $REPO_NAME:latest -f ../Dockerfile .
         docker tag $REPO_NAME:latest ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
         docker push ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
 
     - name: Deploy to AWS App Runner
       run: |
-        SERVICE_NAME=$(echo ${{ env.NEW_FOLDER }} | sed 's:/*$::')-service
+        SERVICE_NAME=${{ env.NEW_FOLDER }}-service
         aws apprunner create-service --service-name $SERVICE_NAME --source-configuration "{
           \"ImageRepository\": {
             \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest\",
