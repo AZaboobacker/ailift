@@ -19,5 +19,5 @@
       "OptionName": "ELBSubnets",
       "Value": "${SUBNET1}"
     }
-  }
+}
   
