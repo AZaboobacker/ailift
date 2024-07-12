@@ -28,6 +28,7 @@ jobs:
           exit 1
         fi
         echo "$NEW_FOLDERS" > new_folders.txt
+        cat new_folders.txt
       shell: bash
 
     - name: Set up Heroku CLI
@@ -36,17 +37,17 @@ jobs:
     - name: Deploy to Heroku
       run: |
         while IFS= read -r FOLDER; do
-          APP_NAME=$(basename $FOLDER)-${GITHUB_SHA::8}
+          APP_NAME=$(basename "$FOLDER")-${GITHUB_SHA::8}
           echo "Deploying folder $FOLDER to Heroku app $APP_NAME"
-          cd $FOLDER
+          cd "$FOLDER"
           git init
-          heroku create $APP_NAME
-          git remote add heroku https://git.heroku.com/$APP_NAME.git
           git add .
           git commit -m "Deploy to Heroku"
+          heroku create "$APP_NAME"
+          git remote add heroku https://git.heroku.com/"$APP_NAME".git
           git push heroku master --force
-          cd ..
-          APP_URL=$(heroku apps:info -a $APP_NAME | grep "Web URL" | awk '{print $3}')
+          cd -
+          APP_URL=$(heroku apps:info -a "$APP_NAME" | grep "Web URL" | awk '{print $3}')
           echo "The Heroku app is deployed at: $APP_URL"
         done < new_folders.txt
       env:
