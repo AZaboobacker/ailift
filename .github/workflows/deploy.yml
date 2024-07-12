@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,15 +23,17 @@ jobs:
         run: |
           echo "Detecting new folders..."
           git fetch --depth=2
-          PREV_COMMIT=$(git rev-parse HEAD^ || echo "INITIAL_COMMIT")
           NEW_COMMIT=$(git rev-parse HEAD)
-          echo "Previous commit: $PREV_COMMIT"
           echo "New commit: $NEW_COMMIT"
 
-          if [ "$PREV_COMMIT" = "INITIAL_COMMIT" ]; then
-            CHANGED_FILES=$(git ls-tree -r $NEW_COMMIT --name-only)
-          else
+          # Check if there is a previous commit
+          if git rev-parse HEAD^2>/dev/null; then
+            PREV_COMMIT=$(git rev-parse HEAD^)
+            echo "Previous commit: $PREV_COMMIT"
             CHANGED_FILES=$(git diff --name-only $PREV_COMMIT $NEW_COMMIT)
+          else
+            echo "Initial commit detected."
+            CHANGED_FILES=$(git ls-tree -r $NEW_COMMIT --name-only)
           fi
 
           echo "Changed files: $CHANGED_FILES"
