@@ -22,7 +22,7 @@ jobs:
       shell: bash
 
     - name: Debug new folder
-      run: echo "New folder is: ${{ env.NEW_FOLDER }}"
+      run: echo "New folder is:${{ env.NEW_FOLDER }}"
       shell: bash
 
     - name: Set up Docker Buildx
