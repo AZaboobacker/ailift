@@ -18,14 +18,17 @@ jobs:
         with:
           python-version: '3.8'
 
-      - name: Scan for new folders
-        id: scan_new_folders
+      - name: Detect new folders
+        id: detect_folders
         run: |
-          echo "Scanning for new folders..."
-          NEW_FOLDERS=$(find . -type f -name 'requirements.txt' -exec dirname {} \;)
+          echo "Detecting new folders..."
+          git fetch --depth=2
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+          echo "Changed files: $CHANGED_FILES"
+          NEW_FOLDERS=$(echo "$CHANGED_FILES" | grep -E '^[^/]+/requirements.txt' | cut -d'/' -f1 | sort -u)
           if [ -z "$NEW_FOLDERS" ]; then
-            echo "No new folders found. Exiting."
-            exit 1
+            echo "No new or modified folders found. Exiting."
+            exit 0
           fi
           echo "$NEW_FOLDERS" > new_folders.txt
           cat new_folders.txt
