@@ -78,8 +78,8 @@ jobs:
         mkdir $DIRECTORY
 
         # Copy Streamlit app code into the directory
-        cp ${{ env.NEW_FOLDER }}/streamlit.py $DIRECTORY/app.py
-        cp ${{ env.NEW_FOLDER }}/requirements.txt $DIRECTORY/
+        cp ${{ env.NEW_FOLDER }}streamlit.py $DIRECTORY/app.py
+        cp ${{ env.NEW_FOLDER }}requirements.txt $DIRECTORY/
 
         # Navigate to the app directory
         cd $DIRECTORY
@@ -104,6 +104,7 @@ jobs:
         echo "Creating Elastic Beanstalk environment with the following settings:"
         echo "VPC_ID: ${{ secrets.VPC_ID }}"
         echo "SUBNET1: ${{ secrets.SUBNET1 }}"
+        echo "SUBNET1 directly before CLI call: $SUBNET1"
 
         # Create an Elastic Beanstalk environment with an instance profile and VPC settings
         aws elasticbeanstalk create-environment --application-name "${UNIQUE_ID}-app" --environment-name "${UNIQUE_ID}-env" --version-label "${UNIQUE_ID}" --solution-stack-name "64bit Amazon Linux 2 v3.3.14 running Python 3.8" \
