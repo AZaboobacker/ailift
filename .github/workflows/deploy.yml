@@ -48,6 +48,7 @@ jobs:
             APP_NAME=$(basename "$FOLDER")-${GITHUB_SHA::8}
             echo "Deploying folder $FOLDER to Heroku app $APP_NAME"
             cd "$FOLDER"
+            echo "web: streamlit run app.py --server.port \$PORT" > Procfile
             git init
             git add .
             git commit -m "Deploy to Heroku"
