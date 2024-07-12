@@ -49,6 +49,9 @@ jobs:
           git add .
           git commit -m "Deploy to Heroku"
           heroku create "$APP_NAME"
+          if git remote | grep heroku; then
+            git remote remove heroku
+          fi
           git remote add heroku https://git.heroku.com/"$APP_NAME".git
           git push heroku master --force
           cd -
