@@ -6,81 +6,30 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Detect new folders
-        id: detect_folders
-        run: |
-          echo "Detecting new folders..."
-          git fetch --depth=2
-          NEW_COMMIT=$(git rev-parse HEAD)
-          echo "New commit: $NEW_COMMIT"
-
-          # Check if there is a previous commit
-          if git rev-parse HEAD^2>/dev/null; then
-            PREV_COMMIT=$(git rev-parse HEAD^)
-            echo "Previous commit: $PREV_COMMIT"
-            CHANGED_FILES=$(git diff --name-only $PREV_COMMIT $NEW_COMMIT)
-          else
-            echo "Initial commit detected."
-            CHANGED_FILES=$(git ls-tree -r $NEW_COMMIT --name-only)
-          fi
-
-          echo "Changed files: $CHANGED_FILES"
-          NEW_FOLDERS=$(echo "$CHANGED_FILES" | grep -E '^[^/]+/requirements.txt' | cut -d'/' -f1 | sort -u)
-          if [ -z "$NEW_FOLDERS" ]; then
-            echo "No new or modified folders found. Exiting."
-            exit 0
-          fi
-          echo "$NEW_FOLDERS" > new_folders.txt
-          cat new_folders.txt
-        shell: bash
-
-      - name: Set up Heroku CLI
-        run: curl https://cli-assets.heroku.com/install.sh | sh
-
-      - name: Configure Git
-        run: |
-          git config --global user.email "a.zane.a3344@gmail.com"
-          git config --global user.name "Zane"
-
-      - name: Deploy to Heroku
-        run: |
-          while IFS= read -r FOLDER; do
-            APP_NAME=$(basename "$FOLDER")-${GITHUB_SHA::8}
-            echo "Deploying folder $FOLDER to Heroku app $APP_NAME"
-            cd "$FOLDER"
-            echo "web: streamlit run app.py --server.port \$PORT" > Procfile
-            git init
-            git add .
-            git commit -m "Deploy to Heroku"
-            if heroku apps:info -a "$APP_NAME" > /dev/null 2>&1; then
-              echo "App $APP_NAME already exists, skipping creation."
-              heroku git:remote -a "$APP_NAME"
-            else
-              heroku create "$APP_NAME" --buildpack heroku/python
-            fi
-            if git remote | grep heroku; then
-              git remote remove heroku
-            fi
-            git remote add heroku https://git.heroku.com/"$APP_NAME".git
-            git branch -m main
-            HEROKU_API_KEY=$(heroku auth:token)
-            git push https://heroku:$HEROKU_API_KEY@git.heroku.com/"$APP_NAME".git main --force
-            cd -
-            APP_URL=$(heroku apps:info -a "$APP_NAME" | grep "Web URL" | awk '{print $3}')
-            echo "The Heroku app is deployed at: $APP_URL"
-          done < new_folders.txt
+      - name: Login to Heroku Container Registry
+        run: echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        shell: bash
+
+      - name: Build Docker image
+        run: docker build -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web .
+
+      - name: Push Docker image to Heroku
+        run: docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web
+
+      - name: Release app
+        run: |
+          heroku auth:token
+          heroku container:release web --app ${{ secrets.HEROKU_APP_NAME }}
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
