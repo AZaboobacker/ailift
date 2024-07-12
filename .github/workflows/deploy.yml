@@ -55,12 +55,18 @@ jobs:
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
-    - name: Create ECR Repository if it doesn't exist
+    - name: Check and Create ECR Repository
       run: |
         REPO_NAME=${{ env.NEW_FOLDER }}
-        if ! aws ecr describe-repositories --repository-names $REPO_NAME; then
-          aws ecr create-repository --repository-name $REPO_NAME
-        fi
+        echo "Checking if repository $REPO_NAME exists"
+        aws ecr describe-repositories --repository-names $REPO_NAME --region ${{ secrets.AWS_REGION }} || \
+        (echo "Repository $REPO_NAME does not exist, creating it now" && aws ecr create-repository --repository-name $REPO_NAME --region ${{ secrets.AWS_REGION }})
+      env:
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    - name: List ECR Repositories for Debugging
+      run: |
+        aws ecr describe-repositories --region ${{ secrets.AWS_REGION }}
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
