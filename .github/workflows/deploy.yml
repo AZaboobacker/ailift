@@ -36,7 +36,7 @@ jobs:
 
     - name: Configure Git
       run: |
-        git config --global user.email "zane.aboobacker@prudential.com"
+        git config --global user.email "a.zane.a3344@gmail.com"
         git config --global user.name "Zane Aboobacker"
 
     - name: Deploy to Heroku
@@ -48,10 +48,14 @@ jobs:
           git init
           git add .
           git commit -m "Deploy to Heroku"
-          heroku create "$APP_NAME"
+          heroku create "$APP_NAME" --buildpack heroku/python
+          heroku git:remote -a "$APP_NAME"
+          if git remote | grep heroku; then
+            git remote remove heroku
+          fi
           git remote add heroku https://git.heroku.com/"$APP_NAME".git
-          HEROKU_API_KEY=$(heroku auth:token)
-          git push https://heroku:$HEROKU_API_KEY@git.heroku.com/"$APP_NAME".git master --force
+          git branch -m main
+          git push heroku main --force
           cd -
           APP_URL=$(heroku apps:info -a "$APP_NAME" | grep "Web URL" | awk '{print $3}')
           echo "The Heroku app is deployed at: $APP_URL"
