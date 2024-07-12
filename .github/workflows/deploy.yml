@@ -17,7 +17,11 @@ jobs:
       id: newfolder
       run: |
         git fetch --depth=2
-        NEW_FOLDER=$(git diff --name-only HEAD^ HEAD | grep -oE '^[^/]+/' | sort -u | head -n 1)
+        NEW_FOLDER=$(git diff --name-only HEAD HEAD~1 | grep -oE '^[^/]+/' | sort -u | head -n 1 || echo "")
+        if [ -z "$NEW_FOLDER" ]; then
+          echo "No new folder detected. Exiting."
+          exit 1
+        fi
         echo "NEW_FOLDER=${NEW_FOLDER}" >> $GITHUB_ENV
       shell: bash
 
