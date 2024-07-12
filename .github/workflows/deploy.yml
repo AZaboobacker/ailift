@@ -23,7 +23,17 @@ jobs:
         run: |
           echo "Detecting new folders..."
           git fetch --depth=2
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+          PREV_COMMIT=$(git rev-parse HEAD^ || echo "INITIAL_COMMIT")
+          NEW_COMMIT=$(git rev-parse HEAD)
+          echo "Previous commit: $PREV_COMMIT"
+          echo "New commit: $NEW_COMMIT"
+
+          if [ "$PREV_COMMIT" = "INITIAL_COMMIT" ]; then
+            CHANGED_FILES=$(git ls-tree -r $NEW_COMMIT --name-only)
+          else
+            CHANGED_FILES=$(git diff --name-only $PREV_COMMIT $NEW_COMMIT)
+          fi
+
           echo "Changed files: $CHANGED_FILES"
           NEW_FOLDERS=$(echo "$CHANGED_FILES" | grep -E '^[^/]+/requirements.txt' | cut -d'/' -f1 | sort -u)
           if [ -z "$NEW_FOLDERS" ]; then
