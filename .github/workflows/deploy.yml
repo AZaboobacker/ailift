@@ -55,12 +55,18 @@ jobs:
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
-    - name: Create ECR Repository if it doesn't exist
+    - name: Verify and Create ECR Repository if it doesn't exist
       run: |
         REPO_NAME=${{ env.NEW_FOLDER }}
+        echo "Checking if repository $REPO_NAME exists"
         if ! aws ecr describe-repositories --repository-names $REPO_NAME --region ${{ secrets.AWS_REGION }}; then
+          echo "Repository $REPO_NAME does not exist, creating it now"
           aws ecr create-repository --repository-name $REPO_NAME --region ${{ secrets.AWS_REGION }}
+        else
+          echo "Repository $REPO_NAME already exists"
         fi
+        echo "Listing all repositories for verification:"
+        aws ecr describe-repositories --region ${{ secrets.AWS_REGION }}
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
 
@@ -72,9 +78,9 @@ jobs:
       run: |
         REPO_NAME=${{ env.NEW_FOLDER }}
         cd $REPO_NAME
-        docker build -t $REPO_NAME -f ../Dockerfile .
-        docker tag $REPO_NAME ${{ secrets.ECR_REGISTRY }}/$REPO_NAME
-        docker push ${{ secrets.ECR_REGISTRY }}/$REPO_NAME
+        docker build -t $REPO_NAME:latest -f ../Dockerfile .
+        docker tag $REPO_NAME:latest ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
+        docker push ${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest
 
     - name: Deploy to AWS App Runner
       run: |
@@ -82,7 +88,7 @@ jobs:
         SERVICE_NAME=${REPO_NAME}-service
         aws apprunner create-service --service-name $SERVICE_NAME --source-configuration "{
           \"ImageRepository\": {
-            \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/$REPO_NAME\",
+            \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest\",
             \"ImageConfiguration\": {
               \"Port\": \"8501\"
             }
