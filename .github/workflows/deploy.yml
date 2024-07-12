@@ -10,56 +10,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.8'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
 
-    - name: Scan for new folders
-      id: scan_new_folders
-      run: |
-        echo "Scanning for new folders..."
-        NEW_FOLDERS=$(find . -type f -name 'requirements.txt' -exec dirname {} \;)
-        if [ -z "$NEW_FOLDERS" ]; then
-          echo "No new folders found. Exiting."
-          exit 1
-        fi
-        echo "$NEW_FOLDERS" > new_folders.txt
-        cat new_folders.txt
-      shell: bash
-
-    - name: Set up Heroku CLI
-      run: curl https://cli-assets.heroku.com/install.sh | sh
-
-    - name: Configure Git
-      run: |
-        git config --global user.email "a.zane.a3344@gmail.com"
-        git config --global user.name "Zane Aboobacker"
-
-    - name: Deploy to Heroku
-      run: |
-        while IFS= read -r FOLDER; do
-          APP_NAME=$(basename "$FOLDER")-${GITHUB_SHA::8}
-          echo "Deploying folder $FOLDER to Heroku app $APP_NAME"
-          cd "$FOLDER"
-          git init
-          git add .
-          git commit -m "Deploy to Heroku"
-          heroku create "$APP_NAME" --buildpack heroku/python
-          heroku git:remote -a "$APP_NAME"
-          if git remote | grep heroku; then
-            git remote remove heroku
+      - name: Scan for new folders
+        id: scan_new_folders
+        run: |
+          echo "Scanning for new folders..."
+          NEW_FOLDERS=$(find . -type f -name 'requirements.txt' -exec dirname {} \;)
+          if [ -z "$NEW_FOLDERS" ]; then
+            echo "No new folders found. Exiting."
+            exit 1
           fi
-          git remote add heroku https://git.heroku.com/"$APP_NAME".git
-          git branch -m main
-          git push heroku main --force
-          cd -
-          APP_URL=$(heroku apps:info -a "$APP_NAME" | grep "Web URL" | awk '{print $3}')
-          echo "The Heroku app is deployed at: $APP_URL"
-        done < new_folders.txt
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      shell: bash
+          echo "$NEW_FOLDERS" > new_folders.txt
+          cat new_folders.txt
+        shell: bash
+
+      - name: Set up Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "a.zane.a3344@gmail.com"
+          git config --global user.name "Zane"
+
+      - name: Deploy to Heroku
+        run: |
+          while IFS= read -r FOLDER; do
+            APP_NAME=$(basename "$FOLDER")-${GITHUB_SHA::8}
+            echo "Deploying folder $FOLDER to Heroku app $APP_NAME"
+            cd "$FOLDER"
+            git init
+            git add .
+            git commit -m "Deploy to Heroku"
+            if heroku apps:info -a "$APP_NAME" > /dev/null 2>&1; then
+              echo "App $APP_NAME already exists, skipping creation."
+              heroku git:remote -a "$APP_NAME"
+            else
+              heroku create "$APP_NAME" --buildpack heroku/python
+            fi
+            if git remote | grep heroku; then
+              git remote remove heroku
+            fi
+            git remote add heroku https://git.heroku.com/"$APP_NAME".git
+            git branch -m main
+            HEROKU_API_KEY=$(heroku auth:token)
+            git push https://heroku:$HEROKU_API_KEY@git.heroku.com/"$APP_NAME".git main --force
+            cd -
+            APP_URL=$(heroku apps:info -a "$APP_NAME" | grep "Web URL" | awk '{print $3}')
+            echo "The Heroku app is deployed at: $APP_URL"
+          done < new_folders.txt
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        shell: bash
