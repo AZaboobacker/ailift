@@ -34,6 +34,11 @@ jobs:
     - name: Set up Heroku CLI
       run: curl https://cli-assets.heroku.com/install.sh | sh
 
+    - name: Configure Git
+      run: |
+        git config --global user.email "a.zane.a3344@gmail.com"
+        git config --global user.name "Zane Aboobacker"
+
     - name: Deploy to Heroku
       run: |
         while IFS= read -r FOLDER; do
