@@ -77,7 +77,8 @@ jobs:
 
     - name: Deploy to AWS App Runner
       run: |
-        SERVICE_NAME=${{ env.NEW_FOLDER }}-service
+        REPO_NAME=${{ env.NEW_FOLDER }}
+        SERVICE_NAME=${REPO_NAME}-service
         aws apprunner create-service --service-name $SERVICE_NAME --source-configuration "{
           \"ImageRepository\": {
             \"ImageIdentifier\": \"${{ secrets.ECR_REGISTRY }}/$REPO_NAME:latest\",
